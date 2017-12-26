@@ -38,3 +38,4 @@ config.rst
 /.pydevproject
 /.vscode
 *.csv
+*.json
