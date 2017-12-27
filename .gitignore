@@ -39,3 +39,5 @@ config.rst
 /.vscode
 *.csv
 *.json
+*.png
+logdir
