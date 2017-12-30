@@ -4,22 +4,36 @@ from PIL import Image
 
 train = pd.read_json('./data/train.json')
 
+
+# TODO AS: Global scaling
+scale = lambda a: ((a - a.min()) / (a.max() - a.min()) * 255).astype('uint8')
+min_db = -50
+max_db = 40
+signal_scale = lambda a: ((a - min_db) / (max_db - min_db) * 255).astype('uint8')
+
 i = 0
 for _, record in train.iterrows():
     print('Saving ', i)
     i += 1
     record_id = record['id']
-    angle = 'na' if record['inc_angle'] == 'na' else str(round(record['inc_angle'], 2))
-
-    band_1_data = np.array(record['band_1'])
-    band_2_data = np.array(record['band_2'])
-    band_1_data = ((band_1_data - np.min(band_1_data)) / (np.max(band_1_data) - np.min(band_1_data))) * 255
-    band_2_data = ((band_2_data - np.min(band_2_data)) / (np.max(band_2_data) - np.min(band_2_data))) * 255
-    band_1_data = band_1_data.reshape(75, 75)#[25:50, 25:50]
-    band_2_data = band_2_data.reshape(75, 75)#[25:50, 25:50]
-
-    band_1 = Image.fromarray(band_1_data).convert('RGB')
-    band_2 = Image.fromarray(band_2_data).convert('RGB')
     label = 'iceberg' if record['is_iceberg'] else 'ship'
-    band_1.save('./data/images/train/{}/{}_band_1_{}.png'.format(label, record_id, angle))
-    band_2.save('./data/images/train/{}/{}_band_2_{}.png'.format(label, record_id, angle))
+
+    hh = np.array(record['band_1']).reshape(75, 75)
+    hv = np.array(record['band_2']).reshape(75, 75)
+    div = hh / hv
+
+    composites = {
+        'hh': signal_scale(hh).reshape(75, 75),
+        'hv': signal_scale(hv).reshape(75, 75),
+        'div': scale(div).reshape(75, 75),
+        'hh_hh_hv': np.dstack([signal_scale(hh), signal_scale(hh), signal_scale(hv)]),
+        'hh_hv_hv': np.dstack([signal_scale(hh), signal_scale(hv), signal_scale(hv)]),
+        'hh_hv_div': np.dstack([signal_scale(hh), signal_scale(hv), scale(div)])
+    }
+
+    for version, data in composites.items():
+        if len(data.shape) > 2:
+            img = Image.fromarray(data, 'RGB')
+        else:
+            img = Image.fromarray(data).convert('RGB')
+        img.save('./data/images/train/{}/{}_{}.png'.format(label, record_id, version))
