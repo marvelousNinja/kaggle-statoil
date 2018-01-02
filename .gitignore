@@ -41,3 +41,4 @@ config.rst
 *.json
 *.png
 logdir
+.cache
